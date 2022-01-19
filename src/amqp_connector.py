@@ -3,6 +3,7 @@ import json
 import threading
 import logging
 from pika.adapters.blocking_connection import BlockingChannel
+from redis import BlockingConnectionPool
 from data_extractor import DataExtractor
 
 
@@ -17,7 +18,7 @@ class AMQPConnector:
 
     extractor = DataExtractor()
     logger = logging.getLogger("AMQPConnector")
-    logging.getLogger("pika").setLevel(logging.WARNING)
+    logging.getLogger("pika").setLevel(logging.CRITICAL)
 
     @staticmethod
     def prepare_body(body: str) -> dict:
@@ -58,23 +59,36 @@ class AMQPConnector:
         parameters = pika.ConnectionParameters(
             AMQPConnector.address, AMQPConnector.port, "/", credentials
         )
-        connection = pika.BlockingConnection(parameters)
-        logging.error(
-            "Established connection on (%s:%s)",
-            AMQPConnector.address,
-            AMQPConnector.port,
-        )
-        channel = connection.channel()
+        connection: pika.BlockingConnection
+        try:
+            connection = pika.BlockingConnection(parameters)
+            AMQPConnector.logger.info(
+                "Connected with RabbitMQ on (%s:%s)",
+                AMQPConnector.address,
+                AMQPConnector.port,
+            )
+        except Exception as e:
+            AMQPConnector.logger.error(
+                "Could not establish connection with RabbitMQ on (%s:%s).",
+                AMQPConnector.address,
+                AMQPConnector.port,
+            )
+            raise e
 
-        channel.basic_consume(
-            queue=AMQPConnector.read_queue_name,
-            auto_ack=True,
-            on_message_callback=AMQPConnector.consume,
-        )
+        try:
+            channel = connection.channel()
 
-        AMQPConnector.logger.info(
-            "Started listining on %s queue", AMQPConnector.read_queue_name
-        )
-        channel.start_consuming()
+            channel.basic_consume(
+                queue=AMQPConnector.read_queue_name,
+                auto_ack=True,
+                on_message_callback=AMQPConnector.consume,
+            )
 
-        connection.close()
+            AMQPConnector.logger.info(
+                'Started listening on "%s" queue', AMQPConnector.read_queue_name
+            )
+            channel.start_consuming()
+
+            connection.close()
+        except Exception as e:
+            AMQPConnector.logger.error("Unexpected error occured!", exc_info=e)
