@@ -3,13 +3,16 @@ import base64
 import pytesseract
 from pytesseract import Output
 import io
-
+import logging
 
 class DataExtractor:
     __language: str
+    logger: logging.Logger
 
     def __init__(self, language: str = "pol") -> None:
         self.__language = language
+        self.logger = logging.getLogger("DataExtractor")
+        self.logger.setLevel(logging.INFO)
 
     def extract_data(self, b64_str: str) -> list:
         img = self.__b64_to_image(b64_str)
@@ -37,6 +40,7 @@ class DataExtractor:
                         "conf": ocr_data["conf"][i],
                     }
                 )
+                self.logger.info(results[len(results)-1])
         return results
 
     def __data_to_products_list(self, found_text: str) -> list:
@@ -59,7 +63,12 @@ class DataExtractor:
 
         final_values = []
         for item in products:
-            final_values.append(
-                dict(name=item[0]["text"], price=item[2]["text"].replace(",", "."))
+            try:
+                price = float(item[-2]["text"].replace(",", "."))
+                final_values.append(
+                dict(name=item[0]["text"], price=price)
             )
+            except ValueError:
+                pass
+            
         return final_values
