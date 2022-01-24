@@ -5,16 +5,17 @@ import logging
 from pika.adapters.blocking_connection import BlockingChannel
 from redis import BlockingConnectionPool
 from data_extractor import DataExtractor
+import os
 
 
 class AMQPConnector:
 
-    username = "ocr"
-    password = "ocrPassword"
-    address = "127.0.0.1"
+    username = os.getenv('OCR_USERNAME', "ocr")
+    password = os.getenv('OCR_PASSWORD', "ocrPassword")
+    address = os.getenv('OCR_ADDRESS', "127.0.0.1")
     port = 5672
-    read_queue_name = "ocr_service"
-    send_queue_name = "manager_service"
+    read_queue_name = os.getenv('OCR_QUEUE_NAME', "ocr_service")
+    send_queue_name = os.getenv('SERVICE_QUEUE_NAME', "manager_service")
 
     extractor = DataExtractor()
     logger = logging.getLogger("AMQPConnector")

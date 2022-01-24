@@ -1,0 +1,6 @@
+version: '2'
+services:
+  ocr-service:
+    image: ocr-service
+    env_file:
+      - .env
